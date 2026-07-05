@@ -22,6 +22,22 @@ Generate beautiful, minimalist map posters for any city in the world.
 
 ## Installation
 
+### Quick install (Linux/macOS)
+
+`install.sh` clones the repo and installs its dependencies for you, using [uv](https://docs.astral.sh/uv/) if it's available or falling back to a pip virtual environment:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tiuchs/maptoposter/main/install.sh | bash
+```
+
+Add `-s`/`--serve` to start the [web UI](#web-ui) immediately after installing, or `-d`/`--dir <path>` to choose the install directory (default: `./maptoposter`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tiuchs/maptoposter/main/install.sh | bash -s -- --serve
+```
+
+Already have the repo cloned? Run `./install.sh` from inside it to install/update dependencies in place instead of cloning a nested copy.
+
 ### With uv (Recommended)
 
 Make sure [uv](https://docs.astral.sh/uv/) is installed. Running the script by prepending `uv run` automatically creates and manages a virtual environment.
@@ -285,6 +301,7 @@ Create a JSON file in `themes/` directory:
 ```text
 map_poster/
 ├── create_map_poster.py    # Main script
+├── install.sh              # One-line installer (clone + dependency setup)
 ├── font_management.py      # Font loading and Google Fonts integration
 ├── themes/                 # Theme JSON files
 ├── fonts/                  # Font files
