@@ -48,6 +48,12 @@
           </div>
         </div>
         <p class="hint">Leave latitude/longitude blank to geocode the city automatically at generation time, or use "Find center point" to look it up and fine-tune it first.</p>
+
+        <div class="field-row" id="map-preview-row" hidden>
+          <label>Map preview</label>
+          <iframe id="map-preview-frame" class="map-preview-frame" title="Map preview of the selected center point" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          <a id="map-preview-link" class="hint" href="#" target="_blank" rel="noopener noreferrer">View larger map on OpenStreetMap &rarr;</a>
+        </div>
       </fieldset>
 
       <fieldset>

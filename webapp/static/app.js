@@ -21,6 +21,9 @@
   const locateStatus = document.getElementById("locate-status");
   const latitudeInput = document.getElementById("latitude");
   const longitudeInput = document.getElementById("longitude");
+  const mapPreviewRow = document.getElementById("map-preview-row");
+  const mapPreviewFrame = document.getElementById("map-preview-frame");
+  const mapPreviewLink = document.getElementById("map-preview-link");
 
   const previewEmpty = document.getElementById("preview-empty");
   const previewLoading = document.getElementById("preview-loading");
@@ -117,6 +120,20 @@
     });
   }
 
+  function showMapPreview(lat, lon) {
+    const latDelta = 0.02;
+    const lonDelta = latDelta / Math.max(Math.cos((lat * Math.PI) / 180), 0.15);
+    const minLat = (lat - latDelta).toFixed(6);
+    const maxLat = (lat + latDelta).toFixed(6);
+    const minLon = (lon - lonDelta).toFixed(6);
+    const maxLon = (lon + lonDelta).toFixed(6);
+
+    const bbox = `${minLon}%2C${minLat}%2C${maxLon}%2C${maxLat}`;
+    mapPreviewFrame.src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lon}`;
+    mapPreviewLink.href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=15/${lat}/${lon}`;
+    mapPreviewRow.hidden = false;
+  }
+
   locateBtn.addEventListener("click", async () => {
     const city = document.getElementById("city").value.trim();
     const country = document.getElementById("country").value.trim();
@@ -140,6 +157,7 @@
       latitudeInput.value = data.latitude.toFixed(6);
       longitudeInput.value = data.longitude.toFixed(6);
       locateStatus.textContent = `Found: ${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`;
+      showMapPreview(data.latitude, data.longitude);
     } catch (err) {
       locateStatus.textContent = "Network error while looking up the location.";
     } finally {
