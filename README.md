@@ -242,6 +242,31 @@ Then open <http://127.0.0.1:8000> in a browser. The UI lets you:
 
 Generation runs the existing `create_map_poster.py` CLI as a background job per request, so multiple posters can be generated without one job's theme or figure state leaking into another. Once a job finishes, the poster is shown inline (PNG/SVG) and a **Download poster** button serves the file.
 
+## Docker
+
+Run the web UI in a container with Docker Compose — no local Python setup required.
+
+```bash
+# Create the host directories the container will persist data to
+mkdir -p posters cache fonts/cache
+
+docker compose up --build
+```
+
+Then open <http://127.0.0.1:8000>. Stop it with `docker compose down` (or `Ctrl+C` if running in the foreground).
+
+What's in the container:
+
+- **`Dockerfile`** — builds a `python:3.11-slim` image with the CLI (`create_map_poster.py`, `font_management.py`), the `themes/` and `fonts/` assets, and the `webapp/` FastAPI app; runs as a non-root user and starts `webapp/server.py` bound to `0.0.0.0:8000`.
+- **`docker-compose.yml`** — builds the image, publishes port 8000, and bind-mounts `./posters`, `./cache`, and `./fonts/cache` into the container so generated posters and the OSM/geocoding/font caches persist on the host across restarts and rebuilds.
+- **`.dockerignore`** — keeps the build context small (skips `.git`, existing sample posters, caches, tests, etc.).
+
+Notes:
+
+- The `mkdir -p` step matters: if those directories don't exist yet, Docker will bind-mount them into existence owned by `root`, and the container's non-root user won't be able to write to them. If you hit a permission error, run `sudo chown -R 1000:1000 posters cache fonts/cache` on the host.
+- To run a one-off CLI command instead of the web UI, use the same image: `docker compose run --rm maptoposter python create_map_poster.py --city Paris --country France`.
+- The image targets `linux/amd64` and `linux/arm64` (works on Apple Silicon via Docker Desktop); all dependencies install from prebuilt wheels, so no build toolchain is included.
+
 ## Themes
 
 17 themes available in `themes/` directory:
@@ -311,6 +336,8 @@ map_poster/
 ├── webapp/                 # Browser-based UI (FastAPI backend + static frontend)
 │   ├── server.py
 │   └── static/
+├── Dockerfile              # Container image for the web UI
+├── docker-compose.yml      # Builds + runs the container with persistent volumes
 └── README.md
 ```
 

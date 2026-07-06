@@ -1,0 +1,14 @@
+services:
+  maptoposter:
+    build: .
+    image: maptoposter:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      # Generated posters and OSM/geocoding caches persist on the host and
+      # survive container rebuilds. Create these directories first (see
+      # README) so they aren't bind-mounted into existence as root.
+      - ./posters:/app/posters
+      - ./cache:/app/cache
+      - ./fonts/cache:/app/fonts/cache
+    restart: unless-stopped
