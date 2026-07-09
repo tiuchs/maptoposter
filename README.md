@@ -250,22 +250,29 @@ Run the web UI in a container with Docker Compose — no local Python setup requ
 # Create the host directories the container will persist data to
 mkdir -p posters cache fonts/cache
 
+# Pull the prebuilt image from GitHub Container Registry...
+docker compose pull
+docker compose up -d
+
+# ...or build it locally from the Dockerfile instead
 docker compose up --build
 ```
 
 Then open <http://127.0.0.1:8000>. Stop it with `docker compose down` (or `Ctrl+C` if running in the foreground).
 
-What's in the container:
+What's in the container setup:
 
 - **`Dockerfile`** — builds a `python:3.11-slim` image with the CLI (`create_map_poster.py`, `font_management.py`), the `themes/` and `fonts/` assets, and the `webapp/` FastAPI app; runs as a non-root user and starts `webapp/server.py` bound to `0.0.0.0:8000`.
-- **`docker-compose.yml`** — builds the image, publishes port 8000, and bind-mounts `./posters`, `./cache`, and `./fonts/cache` into the container so generated posters and the OSM/geocoding/font caches persist on the host across restarts and rebuilds.
+- **`docker-compose.yml`** — references the published `ghcr.io/tiuchs/maptoposter:latest` image (for `docker compose pull`) while still pointing `build: .` at the local Dockerfile (for `docker compose up --build`); publishes port 8000; bind-mounts `./posters`, `./cache`, and `./fonts/cache` into the container so generated posters and the OSM/geocoding/font caches persist on the host across restarts and rebuilds.
 - **`.dockerignore`** — keeps the build context small (skips `.git`, existing sample posters, caches, tests, etc.).
+- **`.github/workflows/docker-publish.yml`** — builds and pushes the image to GitHub Container Registry (`ghcr.io/tiuchs/maptoposter`) for `linux/amd64` and `linux/arm64` on every push to `main` and on version tags (`v*.*.*`), tagged `latest` plus the commit SHA.
 
 Notes:
 
 - The `mkdir -p` step matters: if those directories don't exist yet, Docker will bind-mount them into existence owned by `root`, and the container's non-root user won't be able to write to them. If you hit a permission error, run `sudo chown -R 1000:1000 posters cache fonts/cache` on the host.
+- The first time the publish workflow runs, GitHub Container Registry creates the package as **private** by default, even though the repo is public — `docker compose pull` will fail with an auth error until you open the package's settings on GitHub (repo sidebar → Packages → `maptoposter` → Package settings) and change its visibility to Public, or `docker login ghcr.io` with a personal access token that has `read:packages`.
 - To run a one-off CLI command instead of the web UI, use the same image: `docker compose run --rm maptoposter python create_map_poster.py --city Paris --country France`.
-- The image targets `linux/amd64` and `linux/arm64` (works on Apple Silicon via Docker Desktop); all dependencies install from prebuilt wheels, so no build toolchain is included.
+- The image is published for both `linux/amd64` and `linux/arm64` (works on Apple Silicon via Docker Desktop); all dependencies install from prebuilt wheels, so no build toolchain is included.
 
 ## Themes
 

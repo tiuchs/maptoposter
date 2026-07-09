@@ -1,7 +1,11 @@
 services:
   maptoposter:
+    # Published by .github/workflows/docker-publish.yml on every push to
+    # main. `docker compose pull` fetches this instead of building locally;
+    # `docker compose up --build` (or `build`) still builds from the local
+    # Dockerfile and tags the result with this same name.
+    image: ghcr.io/tiuchs/maptoposter:latest
     build: .
-    image: maptoposter:latest
     ports:
       - "8000:8000"
     volumes:
