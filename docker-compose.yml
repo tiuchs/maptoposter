@@ -1,11 +1,12 @@
 services:
   maptoposter:
     # Published by .github/workflows/docker-publish.yml on every push to
-    # main. `docker compose pull` fetches this instead of building locally;
-    # `docker compose up --build` (or `build`) still builds from the local
-    # Dockerfile and tags the result with this same name.
+    # main. No `build:` key on purpose: this file just pulls and runs the
+    # prebuilt image, so it works with tools like Synology Container
+    # Manager that don't have the repo's Dockerfile available to build
+    # from. To build from source instead, see the Docker section of the
+    # README.
     image: ghcr.io/tiuchs/maptoposter:latest
-    build: .
     ports:
       - "8000:8000"
     volumes:

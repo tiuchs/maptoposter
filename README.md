@@ -250,21 +250,28 @@ Run the web UI in a container with Docker Compose — no local Python setup requ
 # Create the host directories the container will persist data to
 mkdir -p posters cache fonts/cache
 
-# Pull the prebuilt image from GitHub Container Registry...
 docker compose pull
 docker compose up -d
-
-# ...or build it locally from the Dockerfile instead
-docker compose up --build
 ```
 
 Then open <http://127.0.0.1:8000>. Stop it with `docker compose down` (or `Ctrl+C` if running in the foreground).
 
+`docker-compose.yml` only references the published image (no `build:` key), so it works out of the box with tools that just read a compose file and don't have the repo's `Dockerfile` available — e.g. Synology Container Manager, Portainer, unRAID. If you paste/upload only `docker-compose.yml` to one of those, it will pull and run `ghcr.io/tiuchs/maptoposter:latest` directly; it will never try to build.
+
+**Building from source instead of pulling** (for local changes to the app):
+
+```bash
+docker build -t ghcr.io/tiuchs/maptoposter:latest .
+docker compose up -d
+```
+
+Tagging your local build with the same name the compose file expects means `docker compose up` uses it directly — no `build:` key needed, and it won't overwrite your local image with a pull unless you run `docker compose pull` again.
+
 What's in the container setup:
 
 - **`Dockerfile`** — builds a `python:3.11-slim` image with the CLI (`create_map_poster.py`, `font_management.py`), the `themes/` and `fonts/` assets, and the `webapp/` FastAPI app; runs as a non-root user and starts `webapp/server.py` bound to `0.0.0.0:8000`.
-- **`docker-compose.yml`** — references the published `ghcr.io/tiuchs/maptoposter:latest` image (for `docker compose pull`) while still pointing `build: .` at the local Dockerfile (for `docker compose up --build`); publishes port 8000; bind-mounts `./posters`, `./cache`, and `./fonts/cache` into the container so generated posters and the OSM/geocoding/font caches persist on the host across restarts and rebuilds.
-- **`.dockerignore`** — keeps the build context small (skips `.git`, existing sample posters, caches, tests, etc.).
+- **`docker-compose.yml`** — pulls and runs `ghcr.io/tiuchs/maptoposter:latest`; publishes port 8000; bind-mounts `./posters`, `./cache`, and `./fonts/cache` into the container so generated posters and the OSM/geocoding/font caches persist on the host across restarts and rebuilds.
+- **`.dockerignore`** — keeps the build context small when building from source (skips `.git`, existing sample posters, caches, tests, etc.).
 - **`.github/workflows/docker-publish.yml`** — builds and pushes the image to GitHub Container Registry (`ghcr.io/tiuchs/maptoposter`) for `linux/amd64` and `linux/arm64` on every push to `main` and on version tags (`v*.*.*`), tagged `latest` plus the commit SHA.
 
 Notes:
