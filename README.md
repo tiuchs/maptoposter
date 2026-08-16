@@ -242,6 +242,45 @@ Then open <http://127.0.0.1:8000> in a browser. The UI lets you:
 
 Generation runs the existing `create_map_poster.py` CLI as a background job per request, so multiple posters can be generated without one job's theme or figure state leaking into another. Once a job finishes, the poster is shown inline (PNG/SVG) and a **Download poster** button serves the file.
 
+## Docker
+
+Run the web UI in a container with Docker Compose — no local Python setup required.
+
+```bash
+# Create the host directories the container will persist data to
+mkdir -p posters cache fonts/cache
+
+docker compose pull
+docker compose up -d
+```
+
+Then open <http://127.0.0.1:8000>. Stop it with `docker compose down` (or `Ctrl+C` if running in the foreground).
+
+`docker-compose.yml` only references the published image (no `build:` key), so it works out of the box with tools that just read a compose file and don't have the repo's `Dockerfile` available — e.g. Synology Container Manager, Portainer, unRAID. If you paste/upload only `docker-compose.yml` to one of those, it will pull and run `ghcr.io/tiuchs/maptoposter:latest` directly; it will never try to build.
+
+**Building from source instead of pulling** (for local changes to the app):
+
+```bash
+docker build -t ghcr.io/tiuchs/maptoposter:latest .
+docker compose up -d
+```
+
+Tagging your local build with the same name the compose file expects means `docker compose up` uses it directly — no `build:` key needed, and it won't overwrite your local image with a pull unless you run `docker compose pull` again.
+
+What's in the container setup:
+
+- **`Dockerfile`** — builds a `python:3.11-slim` image with the CLI (`create_map_poster.py`, `font_management.py`), the `themes/` and `fonts/` assets, and the `webapp/` FastAPI app; runs as a non-root user and starts `webapp/server.py` bound to `0.0.0.0:8000`.
+- **`docker-compose.yml`** — pulls and runs `ghcr.io/tiuchs/maptoposter:latest`; publishes port 8000; bind-mounts `./posters`, `./cache`, and `./fonts/cache` into the container so generated posters and the OSM/geocoding/font caches persist on the host across restarts and rebuilds.
+- **`.dockerignore`** — keeps the build context small when building from source (skips `.git`, existing sample posters, caches, tests, etc.).
+- **`.github/workflows/docker-publish.yml`** — builds and pushes the image to GitHub Container Registry (`ghcr.io/tiuchs/maptoposter`) for `linux/amd64` and `linux/arm64` on every push to `main` and on version tags (`v*.*.*`), tagged `latest` plus the commit SHA.
+
+Notes:
+
+- The `mkdir -p` step matters: if those directories don't exist yet, Docker will bind-mount them into existence owned by `root`, and the container's non-root user won't be able to write to them. If you hit a permission error, run `sudo chown -R 1000:1000 posters cache fonts/cache` on the host.
+- The first time the publish workflow runs, GitHub Container Registry creates the package as **private** by default, even though the repo is public — `docker compose pull` will fail with an auth error until you open the package's settings on GitHub (repo sidebar → Packages → `maptoposter` → Package settings) and change its visibility to Public, or `docker login ghcr.io` with a personal access token that has `read:packages`.
+- To run a one-off CLI command instead of the web UI, use the same image: `docker compose run --rm maptoposter python create_map_poster.py --city Paris --country France`.
+- The image is published for both `linux/amd64` and `linux/arm64` (works on Apple Silicon via Docker Desktop); all dependencies install from prebuilt wheels, so no build toolchain is included.
+
 ## Themes
 
 17 themes available in `themes/` directory:
@@ -311,6 +350,8 @@ map_poster/
 ├── webapp/                 # Browser-based UI (FastAPI backend + static frontend)
 │   ├── server.py
 │   └── static/
+├── Dockerfile              # Container image for the web UI
+├── docker-compose.yml      # Builds + runs the container with persistent volumes
 └── README.md
 ```
 
