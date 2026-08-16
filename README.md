@@ -267,16 +267,30 @@ docker compose up -d
 
 Tagging your local build with the same name the compose file expects means `docker compose up` uses it directly — no `build:` key needed, and it won't overwrite your local image with a pull unless you run `docker compose pull` again.
 
+### Matching host file permissions (PUID/PGID)
+
+Bind mounts (`./posters`, `./cache`, `./fonts/cache`) are only writable by the container if its internal user's UID/GID matches whatever owns those directories on the host. Rather than requiring a manual `chown`, the container reads `PUID`/`PGID` environment variables (default `1000`/`1000`, which matches most single-user Linux systems already) and fixes ownership of those three directories to match on every start — regardless of what currently owns them. `TZ` (e.g. `America/Chicago`) sets the container's local time, which affects the timestamps in generated poster filenames.
+
+```yaml
+environment:
+  - PUID=1000
+  - PGID=1000
+  - TZ=America/Chicago
+```
+
+If `id -u` / `id -g` on your host aren't `1000`/`1000`, set `PUID`/`PGID` to match and everything will just work without touching permissions by hand.
+
 What's in the container setup:
 
-- **`Dockerfile`** — builds a `python:3.11-slim` image with the CLI (`create_map_poster.py`, `font_management.py`), the `themes/` and `fonts/` assets, and the `webapp/` FastAPI app; runs as a non-root user and starts `webapp/server.py` bound to `0.0.0.0:8000`.
+- **`Dockerfile`** — builds a `python:3.11-slim-bookworm` image with the CLI (`create_map_poster.py`, `font_management.py`), the `themes/` and `fonts/` assets, and the `webapp/` FastAPI app; starts as `root` only so its entrypoint can do the PUID/PGID remap below, then runs the app itself as the non-root `appuser`, bound to `0.0.0.0:8000`.
+- **`docker-entrypoint.sh`** — remaps `appuser` to `PUID`/`PGID`, `chown`s `posters/`, `cache/`, and `fonts/cache/` to match, then drops privileges via `gosu` before running the actual command.
 - **`docker-compose.yml`** — pulls and runs `ghcr.io/tiuchs/maptoposter:latest`; publishes port 8000; bind-mounts `./posters`, `./cache`, and `./fonts/cache` into the container so generated posters and the OSM/geocoding/font caches persist on the host across restarts and rebuilds.
 - **`.dockerignore`** — keeps the build context small when building from source (skips `.git`, existing sample posters, caches, tests, etc.).
-- **`.github/workflows/docker-publish.yml`** — builds and pushes the image to GitHub Container Registry (`ghcr.io/tiuchs/maptoposter`) for `linux/amd64` and `linux/arm64` on every push to `main` and on version tags (`v*.*.*`), tagged `latest` plus the commit SHA.
+- **`.github/workflows/docker-publish.yml`** — builds and pushes the image to GitHub Container Registry (`ghcr.io/tiuchs/maptoposter`) for `linux/amd64` and `linux/arm64` on every push to `main` and on version tags, tagged `latest` plus the commit SHA/tag.
 
 Notes:
 
-- The `mkdir -p` step matters: if those directories don't exist yet, Docker will bind-mount them into existence owned by `root`, and the container's non-root user won't be able to write to them. If you hit a permission error, run `sudo chown -R 1000:1000 posters cache fonts/cache` on the host.
+- The `mkdir -p` step still matters even with PUID/PGID: the entrypoint fixes ownership of those directories, but the bind-mount source paths need to already exist, or Docker creates them as empty directories that then just get chowned as expected — either way works, but pre-creating them avoids relying on that.
 - The first time the publish workflow runs, GitHub Container Registry creates the package as **private** by default, even though the repo is public — `docker compose pull` will fail with an auth error until you open the package's settings on GitHub (repo sidebar → Packages → `maptoposter` → Package settings) and change its visibility to Public, or `docker login ghcr.io` with a personal access token that has `read:packages`.
 - To run a one-off CLI command instead of the web UI, use the same image: `docker compose run --rm maptoposter python create_map_poster.py --city Paris --country France`.
 - The image is published for both `linux/amd64` and `linux/arm64` (works on Apple Silicon via Docker Desktop); all dependencies install from prebuilt wheels, so no build toolchain is included.
