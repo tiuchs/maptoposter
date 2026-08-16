@@ -7,12 +7,23 @@ services:
     # from. To build from source instead, see the Docker section of the
     # README.
     image: ghcr.io/tiuchs/maptoposter:latest
+    environment:
+      # The container's entrypoint remaps its internal user to this
+      # PUID/PGID and chowns the mounted data directories to match on every
+      # start, so bind mounts just work regardless of what currently owns
+      # them on the host - no manual chown needed. Match these to your host
+      # user (run `id -u` / `id -g` there) if 1000/1000 isn't it. Set TZ to
+      # your own zone (e.g. America/Chicago) - it affects the timestamps in
+      # generated poster filenames.
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
     ports:
       - "8000:8000"
     volumes:
       # Generated posters and OSM/geocoding caches persist on the host and
       # survive container rebuilds. Create these directories first (see
-      # README) so they aren't bind-mounted into existence as root.
+      # README) so they exist before the container's entrypoint chowns them.
       - ./posters:/app/posters
       - ./cache:/app/cache
       - ./fonts/cache:/app/fonts/cache
